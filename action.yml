@@ -1,0 +1,72 @@
+name: 'locize translate'
+description: 'AI-translate your i18next files in CI with locize: extract changed keys, sync, auto-translate, and deliver via the locize CDN.'
+author: 'locize'
+branding:
+  icon: 'globe'
+  color: 'blue'
+
+inputs:
+  api-key:
+    description: 'The locize api-key (store it as a repository secret). Any write-capable key works. Optional if LOCIZE_API_KEY (or LOCIZE_APIKEY) is set in the environment.'
+    required: false
+  project-id:
+    description: 'The locize project-id. Optional if LOCIZE_PROJECTID (or LOCIZE_PROJECT_ID) is set in the environment.'
+    required: false
+  command:
+    description: 'Which flow to run: "localize" (default; detect → extract → sync → auto-translate → download — instrumentation is always skipped in CI) or "sync" (sync → auto-translate → download, for repos whose locale files are already extracted).'
+    required: false
+    default: 'localize'
+  working-directory:
+    description: 'Directory that contains your i18next.config.{ts,js} (default: repository root).'
+    required: false
+    default: '.'
+  config:
+    description: 'Path to an i18next config file, overriding automatic detection (relative to working-directory or absolute).'
+    required: false
+  cdn-type:
+    description: 'locize CDN endpoint to use: standard or pro (default: standard).'
+    required: false
+    default: 'standard'
+  update-values:
+    description: 'Also update existing translation values on locize, not only add new keys (default: false).'
+    required: false
+    default: 'false'
+  skip-translate:
+    description: 'Sync keys to locize but do not request AI auto-translation (default: false).'
+    required: false
+    default: 'false'
+  dry-run:
+    description: 'Preview every step without writing or pushing anything (default: false).'
+    required: false
+    default: 'false'
+  cli-version:
+    description: 'Major version (or dist-tag) of i18next-cli to install (default: 1 — all v1.x fixes/features, no breaking-major surprise). Set to "latest" for the newest release.'
+    required: false
+    default: '1'
+  node-version:
+    description: 'Node.js version to set up (i18next-cli requires >=22; default: 24).'
+    required: false
+    default: '24'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+    - run: npm i -g i18next-cli@${{ inputs.cli-version }} locize-cli@12
+      shell: bash
+    - run: echo "${{ github.action_path }}" >> $GITHUB_PATH
+      shell: bash
+    - run: run.sh
+      shell: bash
+      env:
+        INPUT_API_KEY: ${{ inputs.api-key }}
+        INPUT_PROJECT_ID: ${{ inputs.project-id }}
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_CDN_TYPE: ${{ inputs.cdn-type }}
+        INPUT_UPDATE_VALUES: ${{ inputs.update-values }}
+        INPUT_SKIP_TRANSLATE: ${{ inputs.skip-translate }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
