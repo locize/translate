@@ -12,6 +12,8 @@ It is a thin wrapper around [`i18next-cli localize --ci`](https://github.com/i18
 - ❌ Does **not** rewrite your source code (no instrumentation in CI).
 - ❌ Does **not** commit or open a PR — pair it with a commit/PR step (see [Committing the results](#committing-the-results)). Keeping this action single-purpose lets you compose it with whatever git workflow you already use.
 
+> **Starting from hardcoded strings?** The one-time instrumentation (wrapping strings in `t()` calls) happens locally, not in CI: run `npx i18next-cli localize` interactively, or, if you work with an AI coding agent (Claude Code, Cursor, ...), have it follow the runbook printed by `npx i18next-cli localize --print-agent-prompt` and review the diff like any PR. From then on, this action keeps every push translated, and the results land in Locize's [trust layer](#the-upgrade-the-trust-layer) (Quality Estimation, review workflow, provenance) instead of going into your repo unreviewed.
+
 ## Honest about "free"
 
 A brand-new **free** Locize project can auto-translate a **limited starter amount** out of the box — enough to see it work end to end on a small app. For **continuous** translation you either:
