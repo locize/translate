@@ -43,8 +43,8 @@ jobs:
   translate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: locize/translate@v1
+      - uses: actions/checkout@v7
+      - uses: locize/translate@v2
         with:
           project-id: ${{ secrets.LOCIZE_PROJECTID }}
           api-key: ${{ secrets.LOCIZE_API_KEY }}
@@ -55,7 +55,7 @@ jobs:
 This action writes translated files but leaves git to you. Pair it with a commit (or PR) step:
 
 ```yaml
-      - uses: locize/translate@v1
+      - uses: locize/translate@v2
         with:
           project-id: ${{ secrets.LOCIZE_PROJECTID }}
           api-key: ${{ secrets.LOCIZE_API_KEY }}
@@ -75,6 +75,36 @@ This action writes translated files but leaves git to you. Pair it with a commit
 
 > **Heads-up — AI translation is asynchronous.** Auto-translation runs on the locize side after the sync. With `--ci` the action does a single download and does not wait, so a freshly added key may still be empty in the same run; the next push (or run) picks it up. If you serve translations through [i18next-locize-backend](https://github.com/locize/i18next-locize-backend), the CDN delivers them live regardless of when you commit the files.
 
+### Translating just a pull request's diff
+
+On `pull_request` events, `command: sync` defaults to **changed-only mode**: your source-language files are diffed against the merge-base with the PR's base branch, and only the keys the PR added or modified are synced and AI-translated — not the whole project. Keys are scoped per namespace file, plural families travel together, and nothing is deleted.
+
+The only requirement: the base branch must be available in the checkout, so set `fetch-depth: 0` (the `actions/checkout` default of `1` only contains the merge commit, and the action fails with a clear message telling you so).
+
+```yaml
+name: Translate PR
+on:
+  pull_request:
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: locize/translate@v2
+        with:
+          command: sync
+          project-id: ${{ secrets.LOCIZE_PROJECTID }}
+          api-key: ${{ secrets.LOCIZE_API_KEY }}
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore(i18n): translate PR changes'
+```
+
+Set `changed-only: false` to keep full-project syncs on pull requests, or `changed-only: true` to use it outside PR events too (the base branch is then auto-detected: `origin/HEAD`, `main`, `master`). With `command: localize` the option is not yet supported and the full flow runs.
+
 ## Choosing what runs (`command`)
 
 The action runs the full flow by default, but you can scope it to match how much of the pipeline your repo already owns:
@@ -89,7 +119,7 @@ The action runs the full flow by default, but you can scope it to match how much
 **Already instrumented and extracted, only need the sync?** Set `command: sync` so extraction is skipped too:
 
 ```yaml
-      - uses: locize/translate@v1
+      - uses: locize/translate@v2
         with:
           command: sync
           project-id: ${{ secrets.LOCIZE_PROJECTID }}
@@ -131,6 +161,7 @@ When translations stop being throwaway and start needing to be *trusted*, the pa
 | `config` | | — | Explicit config file path, overriding auto-detection. |
 | `cdn-type` | | `standard` | locize CDN endpoint: `standard` or `pro`. |
 | `update-values` | | `false` | Also update existing translation values on locize, not only add new keys. |
+| `changed-only` | | auto | Only sync and AI-translate the keys changed on this branch vs. the base branch (`command: sync` only). Auto: `true` on `pull_request` events, `false` otherwise. Needs `actions/checkout` with `fetch-depth: 0`. See [Translating just a pull request's diff](#translating-just-a-pull-requests-diff). |
 | `skip-translate` | | `false` | Sync keys but do not request AI auto-translation. |
 | `dry-run` | | `false` | Preview every step without writing or pushing anything. |
 | `cli-version` | | `1` | `i18next-cli` major version/dist-tag to install. Defaults to `1` (all v1.x fixes, no breaking-major surprise); set to `latest` for the newest release. |
@@ -141,6 +172,10 @@ When translations stop being throwaway and start needing to be *trusted*, the pa
 - **Idempotent and safe to re-run.** Already-synced keys are not re-created; syncing never overwrites translations edited remotely unless you pass `update-values: true`.
 - **Reference-language driven.** Auto-translation fires when the reference language gains keys; target languages are filled from it.
 - **Credentials.** Provide `project-id` / `api-key` via `with:` (as above) or via environment variables — both `LOCIZE_PROJECTID` and `LOCIZE_PROJECT_ID` (and `LOCIZE_API_KEY` / `LOCIZE_APIKEY`) are accepted. The api-key is masked in logs by GitHub Actions; never expose it in client-side code — the CDN only needs the project id.
+
+## Upgrading from v1
+
+`v2` has one behavioral change: on `pull_request` events, `command: sync` now defaults to [changed-only mode](#translating-just-a-pull-requests-diff), so only the PR's diff is synced and AI-translated. If your PR workflow uses `command: sync`, either add `fetch-depth: 0` to your checkout step (recommended) or set `changed-only: false` to keep the previous full-project behavior. Everything else is unchanged, and `v1` keeps working as-is.
 
 ## License
 

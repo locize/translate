@@ -31,6 +31,10 @@ inputs:
     description: 'Also update existing translation values on locize, not only add new keys (default: false).'
     required: false
     default: 'false'
+  changed-only:
+    description: 'Only sync and auto-translate the keys that changed on this branch vs. the base branch (command: sync only). Defaults to true on pull_request events, false otherwise. Requires actions/checkout with fetch-depth: 0 so the base branch is available.'
+    required: false
+    default: ''
   skip-translate:
     description: 'Sync keys to locize but do not request AI auto-translation (default: false).'
     required: false
@@ -51,7 +55,7 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
     - run: npm i -g i18next-cli@${{ inputs.cli-version }} locize-cli@12
@@ -68,5 +72,6 @@ runs:
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_CDN_TYPE: ${{ inputs.cdn-type }}
         INPUT_UPDATE_VALUES: ${{ inputs.update-values }}
+        INPUT_CHANGED_ONLY: ${{ inputs.changed-only }}
         INPUT_SKIP_TRANSLATE: ${{ inputs.skip-translate }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}

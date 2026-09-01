@@ -23,6 +23,13 @@ fi
 
 COMMAND_INPUT="${INPUT_COMMAND:-localize}"
 
+# changed-only: unset means "auto" — on on pull_request events, off otherwise.
+# Only the sync flow supports it (localize keeps full-project semantics).
+CHANGED_ONLY="${INPUT_CHANGED_ONLY:-}"
+if [ -z "$CHANGED_ONLY" ]; then
+  if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then CHANGED_ONLY="true"; else CHANGED_ONLY="false"; fi
+fi
+
 run () {
   echo "Running: $*"
   "$@"
@@ -34,6 +41,11 @@ case "$COMMAND_INPUT" in
     # --ci is non-interactive and skips instrumentation (source rewriting needs
     # human review), so this never modifies your source files. This also covers the
     # "already instrumented, just extract + sync" case: instrument is a no-op/skip.
+    # changed-only is a sync-only feature; only warn when it was asked for
+    # explicitly (the pull_request auto-default is silently not applied here).
+    if [ "${INPUT_CHANGED_ONLY:-}" = "true" ]; then
+      echo "::warning::changed-only is not yet supported with command: localize; running the full flow. Use command: sync for changed-only translation."
+    fi
     ARGS=(i18next-cli localize --ci)
     [ -n "${INPUT_CONFIG:-}" ] && ARGS+=(--config "$INPUT_CONFIG")
     [ -n "${INPUT_CDN_TYPE:-}" ] && ARGS+=(--cdn-type "$INPUT_CDN_TYPE")
@@ -53,6 +65,13 @@ case "$COMMAND_INPUT" in
     [ -n "${INPUT_CONFIG:-}" ] && SYNC_ARGS+=(--config "$INPUT_CONFIG")
     [ -n "${INPUT_CDN_TYPE:-}" ] && SYNC_ARGS+=(--cdn-type "$INPUT_CDN_TYPE")
     [ "${INPUT_UPDATE_VALUES:-}" = "true" ] && SYNC_ARGS+=(--update-values)
+    if [ "$CHANGED_ONLY" = "true" ]; then
+      # Scope syncing + AI translation to the keys this branch changed.
+      # GITHUB_BASE_REF is only set on pull_request events; without it the CLI
+      # auto-detects the base (origin/HEAD -> main -> master).
+      SYNC_ARGS+=(--changed-only)
+      [ -n "${GITHUB_BASE_REF:-}" ] && SYNC_ARGS+=(--base "$GITHUB_BASE_REF")
+    fi
     [ "${INPUT_DRY_RUN:-}" = "true" ] && SYNC_ARGS+=(--dry-run)
     run "${SYNC_ARGS[@]}"
 
