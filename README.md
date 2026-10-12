@@ -61,7 +61,8 @@ This action writes translated files but leaves git to you. Pair it with a commit
           api-key: ${{ secrets.LOCIZE_API_KEY }}
 
       # Option A — commit the updated translations back to the branch
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      # (the workflow needs `permissions: contents: write`)
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore(i18n): update translations'
 
@@ -79,12 +80,15 @@ This action writes translated files but leaves git to you. Pair it with a commit
 
 On `pull_request` events, `command: sync` defaults to **changed-only mode**: your source-language files are diffed against the merge-base with the PR's base branch, and only the keys the PR added or modified are synced and AI-translated — not the whole project. Keys are scoped per namespace file, plural families travel together, and nothing is deleted.
 
-The only requirement: the base branch must be available in the checkout, so set `fetch-depth: 0` (the `actions/checkout` default of `1` only contains the merge commit, and the action fails with a clear message telling you so).
+The only requirement: the base branch must be available in the checkout, so set `fetch-depth: 0` (the `actions/checkout` default of `1` contains only the checked-out commit, and the action fails with a clear message telling you so).
 
 ```yaml
 name: Translate PR
 on:
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   translate:
@@ -92,16 +96,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
       - uses: locize/translate@v2
         with:
           command: sync
           project-id: ${{ secrets.LOCIZE_PROJECTID }}
           api-key: ${{ secrets.LOCIZE_API_KEY }}
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: 'chore(i18n): translate PR changes'
 ```
+
+On `pull_request` events the checkout needs `ref: ${{ github.head_ref }}` so the commit lands on the PR branch, and the workflow needs `contents: write`. Pull requests from forks do not receive repository secrets, so this only works for branches in the same repository. A commit pushed with the default `GITHUB_TOKEN` does not start new workflow runs, so CI does not run again on the translation commit.
 
 Set `changed-only: false` to keep full-project syncs on pull requests, or `changed-only: true` to use it outside PR events too (the base branch is then auto-detected: `origin/HEAD`, `main`, `master`). With `command: localize` the option is not yet supported and the full flow runs.
 
