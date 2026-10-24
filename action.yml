@@ -58,9 +58,13 @@ runs:
     - uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
-    - run: npm i -g i18next-cli@${{ inputs.cli-version }} locize-cli@12
+    # inputs reach the shell through env, never interpolated into the script
+    # (GitHub's hardening guide: an expression in run: is pasted in before bash parses it)
+    - run: npm i -g "i18next-cli@$CLI_VERSION" locize-cli@12
       shell: bash
-    - run: echo "${{ github.action_path }}" >> $GITHUB_PATH
+      env:
+        CLI_VERSION: ${{ inputs.cli-version }}
+    - run: echo "$GITHUB_ACTION_PATH" >> "$GITHUB_PATH"
       shell: bash
     - run: run.sh
       shell: bash
