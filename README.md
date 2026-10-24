@@ -120,6 +120,7 @@ The action runs the full flow by default, but you can scope it to match how much
 |---|---|---|
 | `localize` (default) | detect → extract → sync → auto-translate → download | Your code calls `t()` and you want the action to (re)extract keys, push them, translate, and pull results. Instrumentation is **always skipped in CI**, so already-instrumented code is fully supported — your source is never modified. |
 | `sync` | sync → auto-translate → download | Your locale files are **already extracted** (committed in the repo, or produced by an earlier step). The action skips extraction entirely — no source parsing — and just reconciles the existing files with Locize. |
+| `check` | `i18next-cli lint` + `i18next-cli status` | A pull request gate. Read-only, needs no credentials. Fails on hardcoded strings and on keys missing from the locale files; both results land in the job summary. See [Checking a pull request](#checking-a-pull-request). |
 
 **Already instrumented, only need extract + sync?** That's the default — use the [Quick start](#quick-start) workflow as-is. In CI the instrument step is skipped, your keys are extracted, and they're synced to Locize.
 
@@ -132,6 +133,23 @@ The action runs the full flow by default, but you can scope it to match how much
           project-id: ${{ secrets.LOCIZE_PROJECTID }}
           api-key: ${{ secrets.LOCIZE_API_KEY }}
 ```
+
+## Checking a pull request
+
+`command: check` runs two read-only checks and fails the step when either finds something:
+
+- `i18next-cli lint`: hardcoded strings and interpolation mismatches. With a committed baseline (`i18next-cli lint --update-baseline`), only new issues fail.
+- `i18next-cli status`: keys used in the code but missing from the locale files.
+
+Both outputs are written to the job summary. No credentials are needed:
+
+```yaml
+      - uses: locize/translate@v2
+        with:
+          command: check
+```
+
+To check against the translations on Locize instead of the committed files, run `command: sync` first in the same job.
 
 ## How it compares
 
@@ -161,9 +179,9 @@ When translations stop being throwaway and start needing to be *trusted*, the pa
 
 | Input | Required | Default | Description |
 |---|---|---|---|
-| `project-id` | ✅ | — | locize project id (use `${{ secrets.LOCIZE_PROJECTID }}`). |
-| `api-key` | ✅ | — | Write-capable locize API key (use `${{ secrets.LOCIZE_API_KEY }}`). |
-| `command` | | `localize` | Flow to run: `localize` (full: extract → sync → translate → download) or `sync` (sync → translate → download, for already-extracted repos). See [Choosing what runs](#choosing-what-runs-command). |
+| `project-id` | ✅ | — | locize project id (use `${{ secrets.LOCIZE_PROJECTID }}`). Not needed for `command: check`. |
+| `api-key` | ✅ | — | Write-capable locize API key (use `${{ secrets.LOCIZE_API_KEY }}`). Not needed for `command: check`. |
+| `command` | | `localize` | Flow to run: `localize` (full: extract → sync → translate → download) `sync` (sync → translate → download, for already-extracted repos) or `check` (lint + status, read-only). See [Choosing what runs](#choosing-what-runs-command). |
 | `working-directory` | | `.` | Directory containing your `i18next.config.{ts,js}`. |
 | `config` | | — | Explicit config file path, overriding auto-detection. |
 | `cdn-type` | | `standard` | locize CDN endpoint: `standard` or `pro`. |

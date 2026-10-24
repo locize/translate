@@ -7,13 +7,13 @@ branding:
 
 inputs:
   api-key:
-    description: 'The locize api-key (store it as a repository secret). Any write-capable key works. Optional if LOCIZE_API_KEY (or LOCIZE_APIKEY) is set in the environment.'
+    description: 'The locize api-key (store it as a repository secret). Any write-capable key works; not needed for command: check. Optional if LOCIZE_API_KEY (or LOCIZE_APIKEY) is set in the environment.'
     required: false
   project-id:
-    description: 'The locize project-id. Optional if LOCIZE_PROJECTID (or LOCIZE_PROJECT_ID) is set in the environment.'
+    description: 'The locize project-id. Not needed for command: check. Optional if LOCIZE_PROJECTID (or LOCIZE_PROJECT_ID) is set in the environment.'
     required: false
   command:
-    description: 'Which flow to run: "localize" (default; detect → extract → sync → auto-translate → download — instrumentation is always skipped in CI) or "sync" (sync → auto-translate → download, for repos whose locale files are already extracted).'
+    description: 'Which flow to run: "localize" (default; detect → extract → sync → auto-translate → download — instrumentation is always skipped in CI) or "sync" (sync → auto-translate → download, for repos whose locale files are already extracted) or "check" (i18next-cli lint + status as a pull request gate, read-only, no credentials needed; results in the job summary).'
     required: false
     default: 'localize'
   working-directory:

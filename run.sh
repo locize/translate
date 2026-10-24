@@ -6,8 +6,10 @@ set -euo pipefail
 # underscore/concatenated variants so any existing secret naming just works.
 PROJECT_ID="${INPUT_PROJECT_ID:-${LOCIZE_PROJECTID:-${LOCIZE_PROJECT_ID:-}}}"
 API_KEY="${INPUT_API_KEY:-${LOCIZE_API_KEY:-${LOCIZE_APIKEY:-}}}"
+COMMAND_INPUT="${INPUT_COMMAND:-localize}"
 
-if [ -z "$PROJECT_ID" ] || [ -z "$API_KEY" ]; then
+# check only reads the repository, so it runs without credentials
+if [ "$COMMAND_INPUT" != "check" ] && { [ -z "$PROJECT_ID" ] || [ -z "$API_KEY" ]; }; then
   echo "::error::Missing locize credentials. Pass project-id/api-key via 'with:' or set LOCIZE_PROJECTID + LOCIZE_API_KEY (LOCIZE_PROJECT_ID / LOCIZE_APIKEY also accepted) in the environment." >&2
   exit 1
 fi
@@ -20,8 +22,6 @@ export LOCIZE_API_KEY="$API_KEY"
 if [ -n "${INPUT_WORKING_DIRECTORY:-}" ]; then
   cd "$INPUT_WORKING_DIRECTORY"
 fi
-
-COMMAND_INPUT="${INPUT_COMMAND:-localize}"
 
 # changed-only: unset means "auto" — on on pull_request events, off otherwise.
 # Only the sync flow supports it (localize keeps full-project semantics).
@@ -86,8 +86,31 @@ case "$COMMAND_INPUT" in
     fi
     ;;
 
+  check)
+    # Read-only pull request gate: lint (hardcoded strings, interpolation mismatches; with a
+    # committed lint baseline only new issues fail) and status (keys used in the code but
+    # missing from the locale files). To check against the translations on Locize, run
+    # command: sync before it in the same job. Each result also goes to the job summary.
+    FAILED=0
+    for CHECK in lint status; do
+      CHECK_ARGS=(i18next-cli "$CHECK")
+      [ -n "${INPUT_CONFIG:-}" ] && CHECK_ARGS+=(--config "$INPUT_CONFIG")
+      echo "Running: ${CHECK_ARGS[*]}"
+      set +e
+      OUT="$(FORCE_COLOR=0 "${CHECK_ARGS[@]}" 2>&1)"
+      CODE=$?
+      set -e
+      echo "$OUT"
+      if [ "$CODE" -ne 0 ]; then FAILED=1; MARK="❌"; else MARK="✅"; fi
+      if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        printf '### %s i18next-cli %s\n\n```\n%s\n```\n\n' "$MARK" "$CHECK" "$OUT" >> "$GITHUB_STEP_SUMMARY"
+      fi
+    done
+    exit "$FAILED"
+    ;;
+
   *)
-    echo "Unsupported command: '$COMMAND_INPUT' (expected 'localize' or 'sync')" >&2
+    echo "Unsupported command: '$COMMAND_INPUT' (expected 'localize', 'sync' or 'check')" >&2
     exit 1
     ;;
 esac
